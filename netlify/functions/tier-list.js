@@ -1,217 +1,38 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>FINN + BEN LEVEL LIST</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 600px;
-      margin: 40px auto;
-      padding: 10px;
-      background: #f0f0f0;
-    }
-    h1 { text-align: center; }
-    #top-controls {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-    }
-    button {
-      padding: 10px;
-      font-size: 16px;
-      background: #007bff;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #0056b3;
-    }
-    #import-controls {
-      margin-top: 30px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    #importArea {
-      width: 100%;
-      height: 100px;
-      padding: 10px;
-      font-family: monospace;
-    }
-    #levelList {
-      list-style-type: none;
-      padding: 0;
-    }
-    .level {
-      background: white;
-      margin: 10px 0;
-      padding: 10px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-    .level-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .level-header input.name {
-      font-weight: bold;
-      font-size: 16px;
-      border: none;
-      border-bottom: 1px solid #aaa;
-      background: transparent;
-      flex: 1;
-      margin-left: 10px;
-    }
-    .level-header input.name:focus {
-      outline: none;
-      border-color: #007bff;
-    }
-    .inputs {
-      display: flex;
-      gap: 10px;
-      margin-top: 8px;
-    }
-    .inputs input {
-      flex: 1;
-      padding: 5px;
-    }
-    .controls {
-      display: flex;
-      gap: 5px;
-      flex-wrap: wrap;
-    }
-    .controls button {
-      padding: 4px 8px;
-      font-size: 14px;
-    }
-  </style>
-</head>
-<body>
-  <h1>FB LEVEL LIST</h1>
-  <div id="top-controls">
-    <button onclick="addLevel()">➕ Add Level</button>
-    <label><input type="checkbox" id="autoSaveToggle" checked> Auto Save</label>
-  </div>
-  <ul id="levelList"></ul>
-  <div id="import-controls">
-    <textarea id="importArea" placeholder="Paste levels here (e.g., Level 1:3)"></textarea>
-    <button onclick="importLevels()">📥 Import Levels</button>
-  </div>
-  <script>
-    const levelList = document.getElementById('levelList');
-    const importArea = document.getElementById('importArea');
-    const autoSaveToggle = document.getElementById('autoSaveToggle');
+const fs = require("fs");
+const path = require("path");
 
-    function saveToCloud() {
-      if (!autoSaveToggle.checked) return;
-      const data = [...levelList.children].map(level => ({
-        name: level.querySelector('.name').value,
-        ben: level.querySelector('.ben').value,
-        finn: level.querySelector('.finn').value
-      }));
-      fetch("/.netlify/functions/tier-list", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+const filePath = path.resolve("/tmp/data.json");
+
+exports.handler = async (event) => {
+  try {
+    if (event.httpMethod === "POST") {
+      fs.writeFileSync(filePath, event.body || "[]");
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ message: "Saved." }),
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+        },
+      };
     }
 
-    function loadFromCloud() {
-      fetch("/.netlify/functions/tier-list")
-        .then(res => res.json())
-        .then(data => {
-          levelList.innerHTML = '';
-          data.forEach(item => createLevel(item.name, item.ben, item.finn));
-          updateRanks();
-        });
+    let data = "[]";
+    if (fs.existsSync(filePath)) {
+      data = fs.readFileSync(filePath, "utf-8");
     }
 
-    function createLevel(name = 'New Level', ben = '', finn = '') {
-      const li = document.createElement('li');
-      li.className = 'level';
-      li.innerHTML = `
-        <div class="level-header">
-          <span class="rank">Rank</span>
-          <input class="name" value="${name}">
-          <div class="controls">
-            <button onclick="moveUp(this)">⬆</button>
-            <button onclick="moveDown(this)">⬇</button>
-            <input type="number" min="1" placeholder="#" onchange="moveToRank(this)">
-          </div>
-        </div>
-        <div class="inputs">
-          <input class="ben" placeholder="Ben’s runs" value="${ben}">
-          <input class="finn" placeholder="Finn’s runs" value="${finn}">
-        </div>`;
-      levelList.appendChild(li);
-      addInputListeners(li);
-      updateRanks();
-    }
-
-    function addInputListeners(levelItem) {
-      const inputs = levelItem.querySelectorAll('input');
-      inputs.forEach(input => {
-        input.addEventListener('input', () => {
-          updateRanks();
-          saveToCloud();
-        });
-      });
-    }
-
-    function updateRanks() {
-      [...levelList.children].forEach((level, index) => {
-        level.querySelector('.rank').textContent = `Rank ${index + 1}`;
-      });
-    }
-
-    function addLevel() {
-      createLevel();
-      saveToCloud();
-    }
-
-    function moveUp(button) {
-      const li = button.closest('li');
-      const prev = li.previousElementSibling;
-      if (prev) {
-        levelList.insertBefore(li, prev);
-        updateRanks();
-        saveToCloud();
-      }
-    }
-
-    function moveDown(button) {
-      const li = button.closest('li');
-      const next = li.nextElementSibling;
-      if (next) {
-        levelList.insertBefore(next, li);
-        updateRanks();
-        saveToCloud();
-      }
-    }
-
-    function moveToRank(input) {
-      const li = input.closest('li');
-      const rank = parseInt(input.value);
-      if (isNaN(rank) || rank < 1 || rank > levelList.children.length) return;
-      const target = levelList.children[rank - 1];
-      if (target !== li) {
-        levelList.insertBefore(li, rank - 1 < [...levelList.children].indexOf(li) ? target : target.nextSibling);
-        updateRanks();
-        saveToCloud();
-      }
-    }
-
-    setInterval(() => {
-      saveToCloud();
-    }, 5000);
-
-    loadFromCloud();
-  </script>
-</body>
-</html>
-
+    return {
+      statusCode: 200,
+      body: data,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
+    };
+  } catch (err) {
+    return {
+      statusCode: 500,
+      body: "Error reading or writing file.",
+    };
+  }
+};
