@@ -1,9 +1,8 @@
-<!-- Updated HTML & JavaScript: Fixes auto-reset, adds jump controls, and keeps existing data safe -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>FB LEVEL LIST</title>
+  <title>FINN + BEN LEVEL LIST</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -15,7 +14,8 @@
     h1 { text-align: center; }
     #top-controls {
       display: flex;
-      justify-content: center;
+      justify-content: space-between;
+      align-items: center;
       margin-bottom: 20px;
     }
     button {
@@ -84,6 +84,7 @@
     .controls {
       display: flex;
       gap: 5px;
+      flex-wrap: wrap;
     }
     .controls button {
       padding: 4px 8px;
@@ -95,6 +96,7 @@
   <h1>FB LEVEL LIST</h1>
   <div id="top-controls">
     <button onclick="addLevel()">➕ Add Level</button>
+    <label><input type="checkbox" id="autoSaveToggle" checked> Auto Save</label>
   </div>
   <ul id="levelList"></ul>
   <div id="import-controls">
@@ -104,8 +106,10 @@
   <script>
     const levelList = document.getElementById('levelList');
     const importArea = document.getElementById('importArea');
+    const autoSaveToggle = document.getElementById('autoSaveToggle');
 
     function saveToCloud() {
+      if (!autoSaveToggle.checked) return;
       const data = [...levelList.children].map(level => ({
         name: level.querySelector('.name').value,
         ben: level.querySelector('.ben').value,
@@ -121,12 +125,9 @@
       fetch("/.netlify/functions/tier-list")
         .then(res => res.json())
         .then(data => {
-          const current = [...levelList.children].map(l => l.querySelector('.name').value);
-          if (JSON.stringify(current) !== JSON.stringify(data.map(d => d.name))) {
-            levelList.innerHTML = '';
-            data.forEach(item => createLevel(item.name, item.ben, item.finn));
-            updateRanks();
-          }
+          levelList.innerHTML = '';
+          data.forEach(item => createLevel(item.name, item.ben, item.finn));
+          updateRanks();
         });
     }
 
@@ -140,8 +141,9 @@
           <div class="controls">
             <button onclick="moveUp(this)">⬆</button>
             <button onclick="moveDown(this)">⬇</button>
-            <button onclick="moveUp(this, 10)">⬆⬆</button>
-            <button onclick="moveDown(this, 10)">⬇⬇</button>
+            <button onclick="moveUp10(this)">⬆⬆</button>
+            <button onclick="moveDown10(this)">⬇⬇</button>
+            <input type="number" min="1" placeholder="#" onchange="moveToRank(this)">
           </div>
         </div>
         <div class="inputs">
@@ -174,44 +176,64 @@
       saveToCloud();
     }
 
-    function moveUp(button, step = 1) {
+    function moveUp(button) {
       const li = button.closest('li');
-      const siblings = [...levelList.children];
-      const index = siblings.indexOf(li);
-      const targetIndex = Math.max(index - step, 0);
-      levelList.insertBefore(li, siblings[targetIndex]);
-      updateRanks();
-      saveToCloud();
-    }
-
-    function moveDown(button, step = 1) {
-      const li = button.closest('li');
-      const siblings = [...levelList.children];
-      const index = siblings.indexOf(li);
-      const targetIndex = Math.min(index + step, siblings.length - 1);
-      levelList.insertBefore(siblings[targetIndex], li);
-      updateRanks();
-      saveToCloud();
-    }
-
-    function importLevels() {
-      const lines = importArea.value.trim().split('\n');
-      const parsed = [];
-      for (let line of lines) {
-        const [name, rankStr] = line.split(':');
-        if (!name || !rankStr) continue;
-        const rank = parseInt(rankStr.trim());
-        parsed.push({ name: name.trim(), rank });
+      const prev = li.previousElementSibling;
+      if (prev) {
+        levelList.insertBefore(li, prev);
+        updateRanks();
+        saveToCloud();
       }
-      parsed.sort((a, b) => a.rank - b.rank);
-      levelList.innerHTML = '';
-      parsed.forEach(item => createLevel(item.name, '', ''));
-      importArea.value = '';
+    }
+
+    function moveDown(button) {
+      const li = button.closest('li');
+      const next = li.nextElementSibling;
+      if (next) {
+        levelList.insertBefore(next, li);
+        updateRanks();
+        saveToCloud();
+      }
+    }
+
+    function moveUp10(button) {
+      const li = button.closest('li');
+      let target = li;
+      for (let i = 0; i < 10 && target.previousElementSibling; i++) {
+        target = target.previousElementSibling;
+      }
+      levelList.insertBefore(li, target);
       updateRanks();
       saveToCloud();
     }
 
-    // Only autosave every 5s — don't auto-reload to avoid overwriting typing
+    function moveDown10(button) {
+      const li = button.closest('li');
+      let target = li;
+      for (let i = 0; i < 10 && target.nextElementSibling; i++) {
+        target = target.nextElementSibling;
+      }
+      if (target.nextElementSibling) {
+        levelList.insertBefore(target.nextElementSibling, li);
+      } else {
+        levelList.appendChild(li);
+      }
+      updateRanks();
+      saveToCloud();
+    }
+
+    function moveToRank(input) {
+      const li = input.closest('li');
+      const rank = parseInt(input.value);
+      if (isNaN(rank) || rank < 1 || rank > levelList.children.length) return;
+      const target = levelList.children[rank - 1];
+      if (target !== li) {
+        levelList.insertBefore(li, rank - 1 < [...levelList.children].indexOf(li) ? target : target.nextSibling);
+        updateRanks();
+        saveToCloud();
+      }
+    }
+
     setInterval(() => {
       saveToCloud();
     }, 5000);
@@ -220,4 +242,3 @@
   </script>
 </body>
 </html>
-
