@@ -1,8 +1,9 @@
+<!-- Updated HTML & JavaScript: Fixes auto-reset, adds jump controls, and keeps existing data safe -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>FINN + BEN LEVEL LIST</title>
+  <title>FB LEVEL LIST</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -120,9 +121,12 @@
       fetch("/.netlify/functions/tier-list")
         .then(res => res.json())
         .then(data => {
-          levelList.innerHTML = '';
-          data.forEach(item => createLevel(item.name, item.ben, item.finn));
-          updateRanks();
+          const current = [...levelList.children].map(l => l.querySelector('.name').value);
+          if (JSON.stringify(current) !== JSON.stringify(data.map(d => d.name))) {
+            levelList.innerHTML = '';
+            data.forEach(item => createLevel(item.name, item.ben, item.finn));
+            updateRanks();
+          }
         });
     }
 
@@ -136,6 +140,8 @@
           <div class="controls">
             <button onclick="moveUp(this)">⬆</button>
             <button onclick="moveDown(this)">⬇</button>
+            <button onclick="moveUp(this, 10)">⬆⬆</button>
+            <button onclick="moveDown(this, 10)">⬇⬇</button>
           </div>
         </div>
         <div class="inputs">
@@ -168,24 +174,24 @@
       saveToCloud();
     }
 
-    function moveUp(button) {
+    function moveUp(button, step = 1) {
       const li = button.closest('li');
-      const prev = li.previousElementSibling;
-      if (prev) {
-        levelList.insertBefore(li, prev);
-        updateRanks();
-        saveToCloud();
-      }
+      const siblings = [...levelList.children];
+      const index = siblings.indexOf(li);
+      const targetIndex = Math.max(index - step, 0);
+      levelList.insertBefore(li, siblings[targetIndex]);
+      updateRanks();
+      saveToCloud();
     }
 
-    function moveDown(button) {
+    function moveDown(button, step = 1) {
       const li = button.closest('li');
-      const next = li.nextElementSibling;
-      if (next) {
-        levelList.insertBefore(next, li);
-        updateRanks();
-        saveToCloud();
-      }
+      const siblings = [...levelList.children];
+      const index = siblings.indexOf(li);
+      const targetIndex = Math.min(index + step, siblings.length - 1);
+      levelList.insertBefore(siblings[targetIndex], li);
+      updateRanks();
+      saveToCloud();
     }
 
     function importLevels() {
@@ -205,12 +211,13 @@
       saveToCloud();
     }
 
+    // Only autosave every 5s — don't auto-reload to avoid overwriting typing
     setInterval(() => {
       saveToCloud();
-      loadFromCloud();
     }, 5000);
 
     loadFromCloud();
   </script>
 </body>
 </html>
+
