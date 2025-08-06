@@ -1,4 +1,3 @@
-<!-- Fixed and improved version based on your request -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -83,9 +82,22 @@
     .controls {
       display: flex;
       gap: 5px;
+      align-items: center;
     }
     .controls input.rank-input {
       width: 50px;
+    }
+    .delete-btn {
+      background: none;
+      border: none;
+      font-size: 16px;
+      cursor: pointer;
+      padding: 2px;
+      margin-left: 5px;
+      color: #d00;
+    }
+    .delete-btn:hover {
+      color: #a00;
     }
   </style>
 </head>
@@ -134,7 +146,8 @@
           <span class="rank">Rank</span>
           <input class="name" value="${name}">
           <div class="controls">
-            <input class="rank-input" type="number" min="1" placeholder="#" title="Move to Rank"> 
+            <input class="rank-input" type="number" min="1" placeholder="#" title="Move to Rank">
+            <button class="delete-btn" title="Delete Level">🗑️</button>
           </div>
         </div>
         <div class="inputs">
@@ -149,6 +162,12 @@
         if (targetRank > items.length) targetRank = items.length;
         levelList.removeChild(li);
         levelList.insertBefore(li, items[targetRank - 1]);
+        updateRanks();
+        saveToCloud();
+      });
+
+      li.querySelector('.delete-btn').addEventListener('click', () => {
+        levelList.removeChild(li);
         updateRanks();
         saveToCloud();
       });
@@ -196,7 +215,7 @@
       saveToCloud();
     }
 
-    // ⛔ No longer auto-loading every 5s — just auto-save
+    // Save to cloud every 5 seconds
     setInterval(() => {
       saveToCloud();
     }, 5000);
